@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const nodemailer = require('nodemailer');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -27,13 +26,9 @@ const client = new MongoClient(uri, {
 
 
 
-const transporter = nodemailer.createTransport({
-    service: 'Gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+
+
+
 
 
 
@@ -48,6 +43,7 @@ async function run() {
         const cartCollection = client.db('shopDB').collection('carts');
         const orderCollection = client.db('shopDB').collection('orders');
         const productReviewCollection = client.db('shopDB').collection('productReviews');
+        const notificationCollection = client.db('shopDB').collection('notifications');
 
 
 
@@ -301,13 +297,13 @@ async function run() {
             try {
                 // Extract order details from the request body
                 const order = req.body;
-                
+
                 // Add the status field to the order object
                 order.status = 'pending';
-                
+
                 // Insert the order into the collection with the 'pending' status
                 const result = await orderCollection.insertOne(order);
-                
+
                 // Send the result back to the client
                 res.send(result);
             } catch (error) {
@@ -315,8 +311,6 @@ async function run() {
                 res.status(500).send({ error: 'Failed to process payment' });
             }
         });
-        
-
 
         // update the order status
         app.patch('/payment/:tnxID', async (req, res) => {
@@ -335,7 +329,7 @@ async function run() {
                     res.send({
                         success: true,
                         message: 'Order status updated successfully',
-                        updatedPaymentIntentId: paymentIntentId,
+                        updatedPaymentIntentId: tnxID,
                         newStatus: status
                     });
                 } else if (result.matchedCount === 0) {
@@ -373,10 +367,10 @@ async function run() {
 
         // get apecific by paymentid
         app.get('/payment/:tnxID', async (req, res) => {
-            const { paymentIntentId } = req.params;
+            const { tnxID } = req.params;
 
             try {
-                const query = { paymentIntentId: paymentIntentId };
+                const query = { tnxID: tnxID };
                 const result = await orderCollection.findOne(query);
 
                 if (result) {
@@ -389,6 +383,33 @@ async function run() {
                 res.status(500).send({ success: false, error: error.message, message: 'Internal server error' });
             }
         });
+
+
+
+        // ------------------------notification----------------------
+        // POST API to create a new notification
+        app.post('/notifications', async (req, res) => {
+            const { userID, message, date, tnxID } = req.body;
+            const newNotification = { userID, message, date };
+            
+            const result = await notificationCollection.insertOne(newNotification);
+            res.send(result)
+        });
+
+        
+
+        app.get('/notifications', async (req, res) => {
+            const result = await notificationCollection.find().toArray();
+            res.send(result);
+        })
+
+        app.delete('/notification/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await notificationCollection.deleteOne(query);
+            res.send(result);
+        });
+
 
 
         await client.db("admin").command({ ping: 1 });
