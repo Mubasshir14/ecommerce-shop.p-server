@@ -8,7 +8,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://e-commerce-586e1.web.app/'],
+    origin: ['http://localhost:5173', 'https://e-commerce-586e1.web.app'],
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
